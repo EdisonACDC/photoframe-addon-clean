@@ -79,7 +79,7 @@ export function LicenseDialog({ open, onOpenChange }: LicenseDialogProps) {
                 onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
                 onKeyDown={(e) => e.key === "Enter" && handleActivate()}
                 className="pl-10 font-mono"
-                maxLength={19}
+                maxLength={25}
               />
             </div>
           </div>
