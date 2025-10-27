@@ -5,7 +5,7 @@ import path from "path";
 import fs from "fs/promises";
 import { storage } from "./storage";
 import { insertPhotoSchema } from "@shared/schema";
-import { validateLicenseKey } from "@shared/license";
+import { validateLicenseKey, isAdminLicense } from "@shared/license";
 
 // Use UPLOAD_DIR from environment (set in run.sh to /data/uploads)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
@@ -190,13 +190,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Se ha licenza PRO valida → isPro=true
       if (isValid) {
+        // Controlla se è codice ADMIN (permanente)
+        const isAdmin = key ? isAdminLicense(key) : false;
+        
         return res.json({ 
           hasLicense: true,
           isValid: true,
           isPro: true,
           isTrial: false,
           isExpired: false,
-          daysRemaining: 0
+          daysRemaining: isAdmin ? -1 : 0, // -1 = permanente
+          isAdmin: isAdmin
         });
       }
       
