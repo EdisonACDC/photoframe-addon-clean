@@ -1,0 +1,106 @@
+# ═══════════════════════════════════════════════════════════
+# 📝 CONFIGURAZIONE HOME ASSISTANT PER PHOTOFRAME
+# ═══════════════════════════════════════════════════════════
+#
+# Copia questo contenuto nel tuo configuration.yaml
+# oppure crea un file packages/photoframe.yaml
+
+# ───────────────────────────────────────────────────────────
+# 🔧 HELPER NECESSARI
+# ───────────────────────────────────────────────────────────
+
+input_boolean:
+  photoframe_playing:
+    name: PhotoFrame Playing
+    icon: mdi:play-pause
+
+input_number:
+  photoframe_interval:
+    name: PhotoFrame Interval
+    min: 5
+    max: 60
+    step: 5
+    initial: 15
+    unit_of_measurement: "s"
+    icon: mdi:timer-outline
+
+# ───────────────────────────────────────────────────────────
+# 🎮 SCRIPT DI CONTROLLO (OPZIONALI)
+# ───────────────────────────────────────────────────────────
+
+script:
+  photoframe_play:
+    alias: "PhotoFrame: Play"
+    sequence:
+      - service: rest_command.photoframe_control
+        data:
+          action: "play"
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.photoframe_playing
+
+  photoframe_pause:
+    alias: "PhotoFrame: Pause"
+    sequence:
+      - service: rest_command.photoframe_control
+        data:
+          action: "pause"
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.photoframe_playing
+
+  photoframe_next:
+    alias: "PhotoFrame: Next"
+    sequence:
+      - service: rest_command.photoframe_control
+        data:
+          action: "next"
+
+  photoframe_previous:
+    alias: "PhotoFrame: Previous"
+    sequence:
+      - service: rest_command.photoframe_control
+        data:
+          action: "previous"
+
+# ───────────────────────────────────────────────────────────
+# 🌐 REST COMMAND (OPZIONALI - solo se usi gli script)
+# ───────────────────────────────────────────────────────────
+
+rest_command:
+  photoframe_control:
+    url: "http://homeassistant.local:8123/api/hassio_ingress/photoframe-beta/api/control"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: '{"action": "{{ action }}"}'
+
+# ───────────────────────────────────────────────────────────
+# 🤖 AUTOMAZIONI ESEMPIO (OPZIONALI)
+# ───────────────────────────────────────────────────────────
+
+automation:
+  # Avvia slideshow quando torni a casa
+  - alias: "PhotoFrame: Avvia quando torni a casa"
+    trigger:
+      - platform: state
+        entity_id: person.your_name
+        to: "home"
+    action:
+      - service: script.photoframe_play
+
+  # Pausa slideshow di notte
+  - alias: "PhotoFrame: Pausa di notte"
+    trigger:
+      - platform: time
+        at: "23:00:00"
+    action:
+      - service: script.photoframe_pause
+
+  # Riprendi al mattino
+  - alias: "PhotoFrame: Riprendi al mattino"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    action:
+      - service: script.photoframe_play
