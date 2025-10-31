@@ -2,6 +2,31 @@
 
 Tutte le modifiche importanti a questo progetto saranno documentate in questo file.
 
+## [1.0.32] - 2025-10-31
+
+### 🐛 Critical Bug Fix - Process Crash
+- **RISOLTO**: Addon crashava continuamente causando errori HTTP 503
+- Rimosso `throw err;` dall'error handler Express che terminava il processo Node
+- Errori ora vengono loggati senza crashare l'applicazione
+- Ingress Home Assistant ora funziona stabilmente
+- Fix riavvii continui ogni 10 minuti
+
+### Dettagli Tecnici
+- Error middleware in `server/index.ts` ora logga ma non rilancia eccezioni
+- Aggiunto controllo `!res.headersSent` prima di inviare risposta errore
+- Processo rimane attivo anche in caso di errori nelle route
+
+---
+
+## [1.0.31] - 2025-10-31
+
+### 🔧 Fix Ingress Configuration
+- Rimossa porta `5000/tcp` dal config che creava conflitto con ingress
+- Mantenuto solo `ingress_port: 5000` per comunicazione interna
+- Card e rest_command usano entrambi ingress (zero conflitti)
+
+---
+
 ## [1.0.27] - 2025-10-26
 
 ### 🔧 Fix Integrazione Lovelace Card
