@@ -1,6 +1,6 @@
 {
   "name": "PhotoFrame - Cornice Digitale BETA",
-  "version": "1.0.33",
+  "version": "1.0.29",
   "slug": "photoframe-beta",
   "description": "Trasforma il tuo tablet in una cornice digitale elegante con slideshow automatico",
   "url": "https://github.com/EdisonACDC/photoframe-addon",
@@ -10,22 +10,20 @@
   "init": false,
   "ingress": true,
   "ingress_port": 5000,
+  "ports": {
+    "5000/tcp": null
+  },
+  "ports_description": {
+    "5000/tcp": "Internal API port for Home Assistant automations (not exposed to host)"
+  },
   "panel_icon": "mdi:image-multiple",
   "panel_title": "PhotoFrame",
   "options": {
     "upload_limit": 50,
-    "max_file_size": 10,
-    "cloud_access": false,
-    "secure_token": null
+    "max_file_size": 10
   },
   "schema": {
     "upload_limit": "int(1,100)?",
-    "max_file_size": "int(1,50)?",
-    "cloud_access": "bool?",
-    "secure_token": "str?"
-  },
-  "environment": {
-    "CLOUD_ACCESS": "false",
-    "SECURE_TOKEN_REQUIRED": "false"
+    "max_file_size": "int(1,50)?"
   }
 }
