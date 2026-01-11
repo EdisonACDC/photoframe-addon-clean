@@ -11,7 +11,17 @@ Questo repository contiene l'add-on PhotoFrame testato e funzionante per Home As
 - 🏠 Integrazione completa con Home Assistant
 - 🎯 Controllo remoto tramite API REST
 - 🔒 **Funziona SOLO in rete locale** (non compatibile con Nabu Casa Cloud)
+---
 
+## ❤️ Donazioni
+
+Se ti piace il progetto **PhotoFrame** e vuoi supportarne lo sviluppo, puoi fare una donazione ❤️  
+
+[![Donate with PayPal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](
+https://www.paypal.com/donate/?business=speedgmcv@gmail.com&currency_code=EUR
+)
+
+Ogni contributo è molto apprezzato e aiuta a mantenere e migliorare il progetto 🙏
 ---
 
 ## ⚠️ IMPORTANTE - Accesso Solo Locale
