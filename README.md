@@ -1,6 +1,6 @@
 # PhotoFrame - Cornice Digitale per Home Assistant
 
-## 🖼️ Repository Add-on Pulito (dal backup funzionante)
+## 🖼️ Repository Add-on 
 
 Questo repository contiene l'add-on PhotoFrame testato e funzionante per Home Assistant.
 
