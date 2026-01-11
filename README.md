@@ -103,7 +103,7 @@ Puoi integrare PhotoFrame direttamente nella tua dashboard di Home Assistant con
 
 3. Carica il file `photoframe-screensaver-card.js` in questa cartella
 4. Il percorso finale deve essere:
-/homeassistant/www/community/photoframe-screensaver-card/photoframe-screensaver-card.js
+/local/community/photoframe-screensaver-card/photoframe-screensaver-card.js?v=1
 
 
 #### Passo 3: Registra la risorsa
