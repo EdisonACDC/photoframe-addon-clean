@@ -961,4 +961,5 @@ class PhotoFrameScreensaverCardEditor extends HTMLElement {
 
 customElements.define('photoframe-screensaver-card', PhotoFrameScreensaverCard);
 customElements.define('photoframe-screensaver-card-editor', PhotoFrameScreensaverCardEditor);
-window.PhotoFrameScreensaverCard = PhotoFrameScreensaverCard;
+
+window.PhotoFrameScreensaverCard = PhotoFrameScreensaverCard;ADMIN-2025-PERM-IS6Z
