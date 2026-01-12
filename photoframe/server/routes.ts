@@ -10,6 +10,20 @@ import { validateLicenseKey, isAdminLicense } from "@shared/license";
 // Use UPLOAD_DIR from environment (set in run.sh to /data/uploads)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
 
+/**
+ * Read limits from add-on configuration (exported in run.sh).
+ * - MAX_FILE_SIZE is in MB (per file)
+ * - UPLOAD_LIMIT is max number of files per request
+ */
+function readIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+const MAX_FILE_SIZE_MB = readIntEnv("MAX_FILE_SIZE", 50); // default 50MB per file
+const UPLOAD_LIMIT = readIntEnv("UPLOAD_LIMIT", 50); // default 50 files
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: UPLOAD_DIR,
@@ -27,9 +41,48 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: MAX_FILE_SIZE_MB * 1024 * 1024, // per-file limit
+    files: UPLOAD_LIMIT, // max files per request
   },
 });
+
+function formatMulterError(err: any): { status: number; body: any } {
+  // Multer errors: https://github.com/expressjs/multer#error-handling
+  if (err && typeof err === "object" && err.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return {
+        status: 413,
+        body: {
+          error: "File too large",
+          details: `One of the selected photos exceeds the maximum size of ${MAX_FILE_SIZE_MB}MB.`,
+          maxFileSizeMB: MAX_FILE_SIZE_MB,
+        },
+      };
+    }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return {
+        status: 413,
+        body: {
+          error: "Too many files",
+          details: `You can upload up to ${UPLOAD_LIMIT} photos per request.`,
+          uploadLimit: UPLOAD_LIMIT,
+        },
+      };
+    }
+    return {
+      status: 400,
+      body: { error: "Upload error", details: String(err.message || err.code) },
+    };
+  }
+
+  // Other errors thrown in fileFilter etc.
+  if (err instanceof Error) {
+    // invalid mime type etc.
+    return { status: 400, body: { error: err.message } };
+  }
+
+  return { status: 500, body: { error: "Failed to upload photos" } };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/uploads", (req, res, next) => {
@@ -61,42 +114,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/photos/upload", upload.array("photos", 50), async (req, res) => {
-    try {
-      console.log("[UPLOAD] Inizio upload, UPLOAD_DIR:", UPLOAD_DIR);
-      
-      const files = req.files as Express.Multer.File[];
-      console.log("[UPLOAD] File ricevuti:", files?.length || 0);
-      
-      if (!files || files.length === 0) {
-        console.error("[UPLOAD] Nessun file ricevuto");
-        return res.status(400).json({ error: "No files uploaded" });
+  // Wrap multer so we can return clear errors (file too large, etc.)
+  app.post("/api/photos/upload", (req, res) => {
+    const handler = upload.array("photos", UPLOAD_LIMIT);
+
+    handler(req, res, async (err: any) => {
+      if (err) {
+        console.error("[UPLOAD] MULTER ERROR:", err);
+        const { status, body } = formatMulterError(err);
+        return res.status(status).json(body);
       }
 
-      console.log("[UPLOAD] Elaborazione file...");
-      const uploadedPhotos = await Promise.all(
-        files.map(async (file) => {
-          console.log("[UPLOAD] File:", file.originalname, "→", file.filename);
-          const photoData = insertPhotoSchema.parse({
-            filename: file.originalname,
-            filepath: `/uploads/${file.filename}`,
-          });
-          const photo = await storage.createPhoto(photoData);
-          console.log("[UPLOAD] Foto salvata:", photo.id);
-          return photo;
-        })
-      );
+      try {
+        console.log("[UPLOAD] Inizio upload, UPLOAD_DIR:", UPLOAD_DIR);
+        console.log("[UPLOAD] Limits:", {
+          MAX_FILE_SIZE_MB,
+          UPLOAD_LIMIT,
+        });
 
-      console.log("[UPLOAD] Upload completato:", uploadedPhotos.length, "foto");
-      res.json(uploadedPhotos);
-    } catch (error) {
-      console.error("[UPLOAD] ERRORE:", error);
-      console.error("[UPLOAD] Stack:", error instanceof Error ? error.stack : "N/A");
-      res.status(500).json({ 
-        error: "Failed to upload photos",
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
+        const files = req.files as Express.Multer.File[];
+        console.log("[UPLOAD] File ricevuti:", files?.length || 0);
+
+        if (!files || files.length === 0) {
+          console.error("[UPLOAD] Nessun file ricevuto");
+          return res.status(400).json({ error: "No files uploaded" });
+        }
+
+        const uploadedPhotos = await Promise.all(
+          files.map(async (file) => {
+            console.log("[UPLOAD] File:", file.originalname, "→", file.filename);
+            const photoData = insertPhotoSchema.parse({
+              filename: file.originalname,
+              filepath: `/uploads/${file.filename}`,
+            });
+            const photo = await storage.createPhoto(photoData);
+            console.log("[UPLOAD] Foto salvata:", photo.id);
+            return photo;
+          })
+        );
+
+        console.log("[UPLOAD] Upload completato:", uploadedPhotos.length, "foto");
+        res.json(uploadedPhotos);
+      } catch (error) {
+        console.error("[UPLOAD] ERRORE:", error);
+        console.error(
+          "[UPLOAD] Stack:",
+          error instanceof Error ? error.stack : "N/A",
+        );
+        res.status(500).json({
+          error: "Failed to upload photos",
+          details: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
   });
 
   app.delete("/api/photos/:id", async (req, res) => {
@@ -163,23 +233,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/slideshow/status", (req, res) => {
-    res.json({ 
+    res.json({
       playing: true,
-      interval: 15 
+      interval: 15,
     });
   });
 
   app.post("/api/slideshow/control", async (req, res) => {
     const { action, interval } = req.body;
-    
+
     if (!action) {
       return res.status(400).json({ error: "Action is required" });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       action,
-      interval: interval || 15 
+      interval: interval || 15,
     });
   });
 
@@ -187,48 +257,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const key = await storage.getLicenseKey();
       const isValid = key ? validateLicenseKey(key) : false;
-      
-      // Se ha licenza PRO valida → isPro=true
+
       if (isValid) {
-        // Controlla se è codice ADMIN (permanente)
         const isAdmin = key ? isAdminLicense(key) : false;
-        
-        return res.json({ 
+
+        return res.json({
           hasLicense: true,
           isValid: true,
           isPro: true,
           isTrial: false,
           isExpired: false,
-          daysRemaining: isAdmin ? -1 : 0, // -1 = permanente
-          isAdmin: isAdmin
+          daysRemaining: isAdmin ? -1 : 0,
+          isAdmin: isAdmin,
         });
       }
-      
-      // Nessuna licenza → controlla trial
+
       const firstLaunch = await storage.getFirstLaunchDate();
       if (!firstLaunch) {
-        // Errore - dovrebbe sempre esserci
-        return res.json({ 
+        return res.json({
           hasLicense: false,
           isValid: false,
           isPro: false,
           isTrial: false,
           isExpired: true,
-          daysRemaining: 0
+          daysRemaining: 0,
         });
       }
-      
-      const { calculateTrialDaysRemaining, isTrialExpired } = await import("@shared/license");
+
+      const { calculateTrialDaysRemaining, isTrialExpired } = await import(
+        "@shared/license"
+      );
       const daysRemaining = calculateTrialDaysRemaining(firstLaunch);
       const expired = isTrialExpired(firstLaunch);
-      
-      res.json({ 
+
+      res.json({
         hasLicense: false,
         isValid: false,
         isPro: false,
-        isTrial: !expired, // Trial attivo solo se non scaduto
+        isTrial: !expired,
         isExpired: expired,
-        daysRemaining
+        daysRemaining,
       });
     } catch (error) {
       console.error("Error checking license:", error);
@@ -239,8 +307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/license/activate", async (req, res) => {
     try {
       const { licenseKey } = req.body;
-      
-      if (!licenseKey || typeof licenseKey !== 'string') {
+
+      if (!licenseKey || typeof licenseKey !== "string") {
         return res.status(400).json({ error: "License key is required" });
       }
 
@@ -250,12 +318,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.saveLicenseKey(licenseKey);
-      
+
       console.log("[LICENSE] PRO attivata:", licenseKey);
-      res.json({ 
+      res.json({
         success: true,
         message: "Licenza PRO attivata con successo!",
-        isPro: true
+        isPro: true,
       });
     } catch (error) {
       console.error("Error activating license:", error);
@@ -263,14 +331,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     app.post("/api/test/expire-trial", async (req, res) => {
       try {
         const { daysAgo } = req.body;
-        const targetDays = typeof daysAgo === 'number' ? daysAgo : 11;
+        const targetDays = typeof daysAgo === "number" ? daysAgo : 11;
         const pastDate = new Date(Date.now() - targetDays * 24 * 60 * 60 * 1000);
         await storage.setFirstLaunchDate(pastDate);
-        console.log(`[TEST] Trial scaduto impostato a ${targetDays} giorni fa:`, pastDate.toISOString());
+        console.log(
+          `[TEST] Trial scaduto impostato a ${targetDays} giorni fa:`,
+          pastDate.toISOString(),
+        );
         res.json({ success: true, firstLaunchDate: pastDate.toISOString() });
       } catch (error) {
         console.error("Error setting trial expiration:", error);
@@ -286,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ success: true, firstLaunchDate: now.toISOString() });
       } catch (error) {
         console.error("Error resetting trial:", error);
-        res.status(500).json({ error: "Failed to reset trial" });
+        res.status(500).json({ error: "Failed to reset trial expiration" });
       }
     });
   }
