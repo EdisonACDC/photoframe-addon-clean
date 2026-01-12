@@ -10,7 +10,7 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, CheckSquare, Square } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ManagementPage() {
@@ -40,14 +40,13 @@ export default function ManagementPage() {
     },
   });
 
-  // ✅ NUOVA MUTATION PER ELIMINAZIONE MULTIPLA
   const bulkTrashMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       await apiRequest("POST", "/api/photos/bulk-trash", { photoIds: ids });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
-      setSelectedIds([]); // Svuota selezione dopo successo
+      setSelectedIds([]);
       toast({
         title: "Operazione completata",
         description: "Le foto selezionate sono state spostate nel cestino.",
@@ -96,65 +95,38 @@ export default function ManagementPage() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <ControlBar />
-      
       <main className="container mx-auto px-4 pt-24">
         {!license?.isPro && <UpgradeBanner />}
-        
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-3 space-y-8">
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold">Le tue Foto</h2>
-                
-                {/* ✅ BARRA AZIONI MULTIPLE */}
                 <div className="flex gap-2">
                   {activePhotosCount > 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={selectedIds.length === activePhotosCount ? deselectAll : selectAll}
-                    >
-                      {selectedIds.length === activePhotosCount ? (
-                        <><Square className="h-4 w-4 mr-2" /> Deseleziona</>
-                      ) : (
-                        <><CheckSquare className="h-4 w-4 mr-2" /> Seleziona Tutto</>
-                      )}
+                    <Button variant="outline" size="sm" onClick={selectedIds.length === activePhotosCount ? deselectAll : selectAll}>
+                      {selectedIds.length === activePhotosCount ? "Deseleziona" : "Seleziona Tutto"}
                     </Button>
                   )}
-
                   {selectedIds.length > 0 && (
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={() => bulkTrashMutation.mutate(selectedIds)}
-                      disabled={bulkTrashMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
+                    <Button variant="destructive" size="sm" onClick={() => bulkTrashMutation.mutate(selectedIds)} disabled={bulkTrashMutation.isPending}>
                       Sposta {selectedIds.length} nel Cestino
                     </Button>
                   )}
                 </div>
               </div>
-
               <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <PhotoGrid 
-                  photos={photos || []} 
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                />
-                
+                <PhotoGrid photos={photos || []} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
                 <div className="fixed bottom-8 right-8 z-50">
                   <TrashZone />
                 </div>
               </DndContext>
             </section>
-
             <section>
               <h2 className="text-2xl font-bold mb-4">Carica Nuove Foto</h2>
               <UploadZone />
             </section>
           </div>
-
           <div className="lg:col-span-1">
             <SettingsPanel />
           </div>
