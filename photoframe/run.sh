@@ -12,7 +12,11 @@ bashio::log.info "Dimensione massima file: ${MAX_FILE_SIZE}MB"
 # Crea directory uploads se non esiste
 mkdir -p /data/uploads
 
-# Export variabili ambiente
+# Export variabili ambiente (usate dal server Node/Multer)
+export UPLOAD_LIMIT=$UPLOAD_LIMIT
+export MAX_FILE_SIZE=$MAX_FILE_SIZE
+
+# Export variabili ambiente già esistenti
 export UPLOAD_DIR=/data/uploads
 export PORT=5000
 export APP_ROOT=/app
@@ -41,6 +45,8 @@ ls -la /data 2>/dev/null || bashio::log.warning "/data NON ESISTE"
 bashio::log.info "Permessi /data/uploads:"
 ls -la /data/uploads 2>/dev/null || bashio::log.warning "/data/uploads NON ESISTE"
 bashio::log.info "UPLOAD_DIR env: $UPLOAD_DIR"
+bashio::log.info "UPLOAD_LIMIT env: $UPLOAD_LIMIT"
+bashio::log.info "MAX_FILE_SIZE env: $MAX_FILE_SIZE"
 bashio::log.info "==================="
 
 # Avvia l'applicazione
