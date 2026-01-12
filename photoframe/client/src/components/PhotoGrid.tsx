@@ -1,7 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Photo } from "@shared/schema";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 interface PhotoGridProps {
@@ -63,47 +62,28 @@ function PhotoItem({
         isSelected ? "border-primary ring-2 ring-primary/20" : "border-transparent",
         isDragging && "opacity-50 scale-95"
       )}
-      onClick={(e) => {
-        // Evita che il click per selezionare interferisca con il drag se fatto velocemente
-        onToggle();
-      }}
+      onClick={onToggle}
     >
-      {/* Checkbox Overlay */}
-      <div 
-        className={cn(
-          "absolute top-2 left-2 z-20 transition-opacity",
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      {/* Checkbox Semplice (HTML) per evitare errori di build */}
+      <div className={cn(
+        "absolute top-2 left-2 z-20 w-6 h-6 rounded border-2 flex items-center justify-center transition-all",
+        isSelected ? "bg-primary border-primary text-white" : "bg-white/50 border-gray-400 opacity-0 group-hover:opacity-100"
+      )}>
+        {isSelected && (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         )}
-        onClick={(e) => e.stopPropagation()} // Impedisce il doppio toggle
-      >
-        <Checkbox 
-          checked={isSelected} 
-          onCheckedChange={onToggle}
-          className="h-6 w-6 bg-white/80 data-[state=checked]:bg-primary"
-        />
       </div>
 
-      {/* Selezione visiva (Overlay bluastro) */}
       {isSelected && (
         <div className="absolute inset-0 bg-primary/10 z-10 pointer-events-none" />
       )}
 
-      {/* Immagine */}
-      <div 
-        {...attributes} 
-        {...listeners} 
-        className="w-full h-full"
-      >
+      <div {...attributes} {...listeners} className="w-full h-full">
         <img
           src={photo.filepath}
           alt={photo.filename}
           className="w-full h-full object-cover pointer-events-none"
         />
-      </div>
-
-      {/* Nome file al passaggio del mouse */}
-      <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white text-xs truncate opacity-0 group-hover:opacity-100 transition-opacity">
-        {photo.filename}
       </div>
     </Card>
   );
