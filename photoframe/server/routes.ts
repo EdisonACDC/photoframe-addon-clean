@@ -10,19 +10,9 @@ import { validateLicenseKey, isAdminLicense } from "@shared/license";
 // Use UPLOAD_DIR from environment (set in run.sh to /data/uploads)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
 
-/**
- * Read limits from add-on configuration (exported in run.sh).
- * - MAX_FILE_SIZE is in MB (per file)
- * - UPLOAD_LIMIT is max number of files per request
- */
-function readIntEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-}
-
-const MAX_FILE_SIZE_MB = readIntEnv("MAX_FILE_SIZE", 50); // default 50MB per file
-const UPLOAD_LIMIT = readIntEnv("UPLOAD_LIMIT", 50); // default 50 files
+// Legge i limiti dalle variabili d'ambiente (impostate in run.sh)
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE || "2000");
+const UPLOAD_LIMIT = parseInt(process.env.UPLOAD_LIMIT || "1000");
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -33,11 +23,11 @@ const upload = multer({
     },
   }),
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif", "image/bmp"];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only JPEG, PNG and WebP are allowed."));
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, GIF and BMP are allowed."));
     }
   },
   limits: {
@@ -47,7 +37,6 @@ const upload = multer({
 });
 
 function formatMulterError(err: any): { status: number; body: any } {
-  // Multer errors: https://github.com/expressjs/multer#error-handling
   if (err && typeof err === "object" && err.name === "MulterError") {
     if (err.code === "LIMIT_FILE_SIZE") {
       return {
@@ -75,9 +64,7 @@ function formatMulterError(err: any): { status: number; body: any } {
     };
   }
 
-  // Other errors thrown in fileFilter etc.
   if (err instanceof Error) {
-    // invalid mime type etc.
     return { status: 400, body: { error: err.message } };
   }
 
@@ -85,11 +72,16 @@ function formatMulterError(err: any): { status: number; body: any } {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Aumentiamo il limite di Express per gestire richieste enormi (batch di foto)
+  const express = await import("express");
+  app.use(express.json({ limit: '2000mb' }));
+  app.use(express.urlencoded({ limit: '2000mb', extended: true }));
+
   app.use("/uploads", (req, res, next) => {
     res.setHeader("Cache-Control", "public, max-age=31536000");
     next();
   });
-  app.use("/uploads", (await import("express")).static(UPLOAD_DIR));
+  app.use("/uploads", express.static(UPLOAD_DIR));
 
   app.get("/api/photos", async (req, res) => {
     try {
@@ -114,7 +106,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Wrap multer so we can return clear errors (file too large, etc.)
   app.post("/api/photos/upload", (req, res) => {
     const handler = upload.array("photos", UPLOAD_LIMIT);
 
@@ -140,6 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "No files uploaded" });
         }
 
+        console.log("[UPLOAD] Elaborazione file...");
         const uploadedPhotos = await Promise.all(
           files.map(async (file) => {
             console.log("[UPLOAD] File:", file.originalname, "→", file.filename);
@@ -258,7 +250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const key = await storage.getLicenseKey();
       const isValid = key ? validateLicenseKey(key) : false;
 
+      // Se ha licenza PRO valida → isPro=true
       if (isValid) {
+        // Controlla se è codice ADMIN (permanente)
         const isAdmin = key ? isAdminLicense(key) : false;
 
         return res.json({
@@ -267,13 +261,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPro: true,
           isTrial: false,
           isExpired: false,
-          daysRemaining: isAdmin ? -1 : 0,
+          daysRemaining: isAdmin ? -1 : 0, // -1 = permanente
           isAdmin: isAdmin,
         });
       }
 
+      // Nessuna licenza → controlla trial
       const firstLaunch = await storage.getFirstLaunchDate();
       if (!firstLaunch) {
+        // Errore - dovrebbe sempre esserci
         return res.json({
           hasLicense: false,
           isValid: false,
@@ -294,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasLicense: false,
         isValid: false,
         isPro: false,
-        isTrial: !expired,
+        isTrial: !expired, // Trial attivo solo se non scaduto
         isExpired: expired,
         daysRemaining,
       });
@@ -357,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ success: true, firstLaunchDate: now.toISOString() });
       } catch (error) {
         console.error("Error resetting trial:", error);
-        res.status(500).json({ error: "Failed to reset trial expiration" });
+        res.status(500).json({ error: "Failed to reset trial" });
       }
     });
   }
