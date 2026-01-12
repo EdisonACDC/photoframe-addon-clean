@@ -12,11 +12,9 @@ bashio::log.info "Dimensione massima file: ${MAX_FILE_SIZE}MB"
 # Crea directory uploads se non esiste
 mkdir -p /data/uploads
 
-# Export variabili ambiente (usate dal server Node/Multer)
-export UPLOAD_LIMIT=$UPLOAD_LIMIT
-export MAX_FILE_SIZE=$MAX_FILE_SIZE
-
-# Export variabili ambiente già esistenti
+# Export variabili ambiente (FONDAMENTALE: così routes.ts può leggerle)
+export UPLOAD_LIMIT=${UPLOAD_LIMIT:-1000}
+export MAX_FILE_SIZE=${MAX_FILE_SIZE:-2000}
 export UPLOAD_DIR=/data/uploads
 export PORT=5000
 export APP_ROOT=/app
