@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Photo } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,13 +8,9 @@ import { ControlBar } from "@/components/ControlBar";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 export default function ManagementPage() {
-  const { toast } = useToast();
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
   const { data: photos, isLoading } = useQuery<Photo[]>({
     queryKey: ["/api/photos"],
   });
@@ -39,20 +34,6 @@ export default function ManagementPage() {
     },
   });
 
-  const bulkTrashMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await apiRequest("POST", "/api/photos/bulk-trash", { photoIds: ids });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
-      setSelectedIds([]);
-      toast({
-        title: "Successo",
-        description: "Foto spostate nel cestino.",
-      });
-    },
-  });
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && over.id === "trash-zone") {
@@ -60,13 +41,13 @@ export default function ManagementPage() {
     }
   };
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
-  };
-
-  if (isLoading) return <div>Caricamento...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -76,18 +57,9 @@ export default function ManagementPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-3 space-y-8">
             <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Le tue Foto</h2>
-                <div className="flex gap-2">
-                  {selectedIds.length > 0 && (
-                    <Button variant="destructive" size="sm" onClick={() => bulkTrashMutation.mutate(selectedIds)}>
-                      Sposta {selectedIds.length} nel Cestino
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <h2 className="text-2xl font-bold mb-4">Le tue Foto</h2>
               <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <PhotoGrid photos={photos || []} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+                <PhotoGrid photos={photos || []} />
                 <div className="fixed bottom-8 right-8 z-50">
                   <TrashZone />
                 </div>
