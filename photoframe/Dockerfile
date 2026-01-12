@@ -1,42 +1,40 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+# Usa un'immagine fissa invece della variabile per evitare errori di build
+FROM ghcr.io/home-assistant/amd64-base:3.20
 
-# Installa Node.js e dipendenze
+# Imposta le variabili d'ambiente per Node
+ENV LANG C.UTF-8
+ENV NODE_VERSION 20.11.1
+
+# Installa Node.js e le dipendenze necessarie
 RUN apk add --no-cache \
-    nodejs-current \
+    nodejs \
     npm \
-    bash
+    git \
+    python3 \
+    make \
+    g++
 
-# Crea directory di lavoro
+# Crea la directory dell'app
 WORKDIR /app
 
-# Copia package files
+# Copia i file delle dipendenze
 COPY package*.json ./
 
-# Installa dipendenze
-RUN npm install --verbose
+# Installa le dipendenze (inclusa la compilazione dei moduli nativi se necessari)
+RUN npm install
 
-# Copia il codice
-COPY client ./client
-COPY server ./server
-COPY shared ./shared
-COPY vite.config.ts ./
-COPY tsconfig.json ./
-COPY tailwind.config.ts ./
-COPY postcss.config.js ./
+# Copia il resto del codice
+COPY . .
 
-# Fai il build
-RUN npm run build || (cat /root/.npm/_logs/*.log 2>/dev/null && exit 1)
+# Fai il build del frontend (Vite/React)
+RUN npm run build
 
 # Crea directory per upload
-RUN mkdir -p /data/uploads
+RUN mkdir -p /data/uploads && chmod 777 /data/uploads
 
-# Copia script di avvio nella root e rendilo eseguibile
+# Copia lo script di avvio e rendilo eseguibile
 COPY run.sh /
 RUN chmod a+x /run.sh
 
-# Espone porta
-EXPOSE 5000
-
-# Avvia applicazione
+# Comando di avvio
 CMD [ "/run.sh" ]
