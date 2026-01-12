@@ -1,58 +1,83 @@
-import { useDraggable } from "@dnd-kit/core";
-import { Photo } from "@shared/schema";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export function PhotoGrid({ photos }: { photos: Photo[] }) {
-  const activePhotos = photos.filter((p) => !p.isTrash);
+interface Photo {
+  id: string;
+  url: string;
+  filename: string;
+  inTrash?: boolean;
+}
 
-  if (activePhotos.length === 0) {
+interface PhotoGridProps {
+  photos: Photo[];
+  onDelete: (id: string) => void;
+  onPhotoClick?: (index: number) => void;
+  enableDrag?: boolean;
+}
+
+export default function PhotoGrid({ 
+  photos, 
+  onDelete, 
+  onPhotoClick,
+  enableDrag = false 
+}: PhotoGridProps) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  if (photos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground border-2 border-dashed rounded-lg">
-        <p>Nessuna foto presente. Caricane alcune per iniziare!</p>
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Nessuna foto caricata</p>
       </div>
     );
   }
 
+  const handleDragStart = (e: React.DragEvent, photoId: string) => {
+    e.dataTransfer.setData("photoId", photoId);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingId(photoId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+  };
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {activePhotos.map((photo) => (
-        <PhotoItem key={photo.id} photo={photo} />
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {photos.map((photo, index) => (
+        <div
+          key={photo.id}
+          className={`relative aspect-square rounded-lg overflow-hidden bg-muted group ${
+            draggingId === photo.id ? "opacity-50 scale-95" : ""
+          } transition-all`}
+          data-testid={`photo-thumbnail-${photo.id}`}
+          draggable={enableDrag}
+          onDragStart={(e) => handleDragStart(e, photo.id)}
+          onDragEnd={handleDragEnd}
+        >
+          <img
+            src={photo.url}
+            alt={photo.filename}
+            className="w-full h-full object-cover pointer-events-none"
+            onClick={() => onPhotoClick?.(index)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+          {!enableDrag && (
+            <Button
+              size="icon"
+              variant="destructive"
+              className="absolute top-2 right-2 w-9 h-9 shadow-lg z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(photo.id);
+              }}
+              data-testid={`button-delete-${photo.id}`}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
       ))}
     </div>
-  );
-}
-
-function PhotoItem({ photo }: { photo: Photo }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: photo.id.toString(),
-    data: photo,
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    zIndex: isDragging ? 50 : undefined,
-  } : undefined;
-
-  return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "relative aspect-square overflow-hidden group cursor-pointer transition-all",
-        isDragging && "opacity-50 scale-95"
-      )}
-      {...attributes}
-      {...listeners}
-    >
-      <img
-        src={photo.filepath}
-        alt={photo.filename}
-        className="w-full h-full object-cover pointer-events-none"
-      />
-      <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white text-xs truncate opacity-0 group-hover:opacity-100 transition-opacity">
-        {photo.filename}
-      </div>
-    </Card>
   );
 }
