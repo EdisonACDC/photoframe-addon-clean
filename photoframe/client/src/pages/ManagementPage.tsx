@@ -10,7 +10,6 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ManagementPage() {
@@ -48,15 +47,8 @@ export default function ManagementPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/photos"] });
       setSelectedIds([]);
       toast({
-        title: "Operazione completata",
-        description: "Le foto selezionate sono state spostate nel cestino.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Errore",
-        description: "Impossibile spostare le foto nel cestino.",
-        variant: "destructive",
+        title: "Successo",
+        description: "Foto spostate nel cestino.",
       });
     },
   });
@@ -74,23 +66,7 @@ export default function ManagementPage() {
     );
   };
 
-  const selectAll = () => {
-    if (!photos) return;
-    const activeIds = photos.filter(p => !p.isTrash).map(p => p.id.toString());
-    setSelectedIds(activeIds);
-  };
-
-  const deselectAll = () => setSelectedIds([]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const activePhotosCount = photos?.filter(p => !p.isTrash).length || 0;
+  if (isLoading) return <div>Caricamento...</div>;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -103,13 +79,8 @@ export default function ManagementPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold">Le tue Foto</h2>
                 <div className="flex gap-2">
-                  {activePhotosCount > 0 && (
-                    <Button variant="outline" size="sm" onClick={selectedIds.length === activePhotosCount ? deselectAll : selectAll}>
-                      {selectedIds.length === activePhotosCount ? "Deseleziona" : "Seleziona Tutto"}
-                    </Button>
-                  )}
                   {selectedIds.length > 0 && (
-                    <Button variant="destructive" size="sm" onClick={() => bulkTrashMutation.mutate(selectedIds)} disabled={bulkTrashMutation.isPending}>
+                    <Button variant="destructive" size="sm" onClick={() => bulkTrashMutation.mutate(selectedIds)}>
                       Sposta {selectedIds.length} nel Cestino
                     </Button>
                   )}
