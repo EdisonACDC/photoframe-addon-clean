@@ -44,9 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/photos/upload", upload.array("photos", UPLOAD_LIMIT), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
-      if (!files?.length) {
-        return res.status(400).json({ error: "No files uploaded" });
-      }
+      if (!files?.length) return res.status(400).json({ error: "No files uploaded" });
 
       const uploaded = await Promise.all(
         files.map((file) =>
@@ -58,7 +56,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         )
       );
-
       res.json(uploaded);
     } catch (error) {
       res.status(500).json({ error: "Upload failed", details: String(error) });
@@ -72,32 +69,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(photo);
     } catch {
       res.status(500).json({ error: "Failed to move photo to trash" });
-    }
-  });
-
-  // ✅ ✅ ✅ NUOVA ROTTA BULK
-  app.post("/api/photos/bulk-trash", async (req, res) => {
-    try {
-      const { photoIds } = req.body;
-
-      if (!Array.isArray(photoIds) || photoIds.length === 0) {
-        return res.status(400).json({ error: "photoIds must be a non-empty array" });
-      }
-
-      const results = await Promise.all(
-        photoIds.map((id: string) => storage.moveToTrash(id))
-      );
-
-      const moved = results.filter(Boolean).length;
-
-      res.json({
-        success: true,
-        moved,
-        requested: photoIds.length,
-      });
-    } catch (error) {
-      console.error("[BULK TRASH ERROR]", error);
-      res.status(500).json({ error: "Failed to move photos to trash" });
     }
   });
 
@@ -124,26 +95,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const key = await storage.getLicenseKey();
       const isValid = key ? validateLicenseKey(key) : false;
-
       if (isValid) {
         const isAdmin = key ? isAdminLicense(key) : false;
-        return res.json({
-          hasLicense: true,
-          isValid: true,
-          isPro: true,
-          isExpired: false,
-          daysRemaining: isAdmin ? -1 : 0,
-        });
+        return res.json({ hasLicense: true, isValid: true, isPro: true, isExpired: false, daysRemaining: isAdmin ? -1 : 0 });
       }
-
-      const firstLaunch = await storage.getFirstLaunchDate();
-      res.json({
-        hasLicense: false,
-        isValid: false,
-        isPro: false,
-        isExpired: true,
-        daysRemaining: 0,
-      });
+      res.json({ hasLicense: false, isValid: false, isPro: false, isExpired: true, daysRemaining: 0 });
     } catch {
       res.status(500).json({ error: "License check failed" });
     }
